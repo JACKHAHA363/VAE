@@ -1,13 +1,14 @@
 import numpy as np
 import tensorflow as tf
 
+import matplotlib
+matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-get_ipython().magic('matplotlib inline')
 
 np.random.seed(0)
 tf.set_random_seed(0)
 
-import input_data
+from tensorflow.examples.tutorials.mnist import input_data
 mnist = input_data.read_data_sets('MNIST_data', one_hot=True)
 n_samples = mnist.train.num_examples
 
@@ -60,8 +61,7 @@ class VariationalAutoencoder(object):
         # Use recognition network to determine mean and 
         # (log) variance of Gaussian distribution in latent
         # space
-        self.z_mean, self.z_log_sigma_sq =             self._recognition_network(network_weights["weights_recog"], 
-                                      network_weights["biases_recog"])
+        self.z_mean, self.z_log_sigma_sq = self._recognition_network(network_weights["weights_recog"], network_weights["biases_recog"])
 
         # Draw one sample z from Gaussian distribution
         n_z = self.network_architecture["n_z"]
@@ -73,8 +73,7 @@ class VariationalAutoencoder(object):
 
         # Use generator to determine mean of
         # Bernoulli distribution of reconstructed input
-        self.x_reconstr_mean =             self._generator_network(network_weights["weights_gener"],
-                                    network_weights["biases_gener"])
+        self.x_reconstr_mean = self._generator_network(network_weights["weights_gener"], network_weights["biases_gener"])
             
     def _initialize_weights(self, n_hidden_recog_1, n_hidden_recog_2, 
                             n_hidden_gener_1,  n_hidden_gener_2, 
@@ -106,26 +105,19 @@ class VariationalAutoencoder(object):
         # Generate probabilistic encoder (recognition network), which
         # maps inputs onto a normal distribution in latent space.
         # The transformation is parametrized and can be learned.
-        layer_1 = self.transfer_fct(tf.add(tf.matmul(self.x, weights['h1']), 
-                                           biases['b1'])) 
-        layer_2 = self.transfer_fct(tf.add(tf.matmul(layer_1, weights['h2']), 
-                                           biases['b2'])) 
-        z_mean = tf.add(tf.matmul(layer_2, weights['out_mean']),
-                        biases['out_mean'])
-        z_log_sigma_sq =             tf.add(tf.matmul(layer_2, weights['out_log_sigma']), 
-                   biases['out_log_sigma'])
+        layer_1 = self.transfer_fct(tf.add(tf.matmul(self.x, weights['h1']), biases['b1'])) 
+        layer_2 = self.transfer_fct(tf.add(tf.matmul(layer_1, weights['h2']), biases['b2'])) 
+        z_mean = tf.add(tf.matmul(layer_2, weights['out_mean']), biases['out_mean'])
+        z_log_sigma_sq = tf.add(tf.matmul(layer_2, weights['out_log_sigma']), biases['out_log_sigma'])
         return (z_mean, z_log_sigma_sq)
 
     def _generator_network(self, weights, biases):
         # Generate probabilistic decoder (decoder network), which
         # maps points in latent space onto a Bernoulli distribution in data space.
         # The transformation is parametrized and can be learned.
-        layer_1 = self.transfer_fct(tf.add(tf.matmul(self.z, weights['h1']), 
-                                           biases['b1'])) 
-        layer_2 = self.transfer_fct(tf.add(tf.matmul(layer_1, weights['h2']), 
-                                           biases['b2'])) 
-        x_reconstr_mean =             tf.nn.sigmoid(tf.add(tf.matmul(layer_2, weights['out_mean']), 
-                                 biases['out_mean']))
+        layer_1 = self.transfer_fct(tf.add(tf.matmul(self.z, weights['h1']), biases['b1'])) 
+        layer_2 = self.transfer_fct(tf.add(tf.matmul(layer_1, weights['h2']), biases['b2'])) 
+        x_reconstr_mean = tf.nn.sigmoid(tf.add(tf.matmul(layer_2, weights['out_mean']), biases['out_mean']))
         return x_reconstr_mean
             
     def _create_loss_optimizer(self):
@@ -137,21 +129,19 @@ class VariationalAutoencoder(object):
         #     for reconstructing the input when the activation in latent
         #     is given.
         # Adding 1e-10 to avoid evaluatio of log(0.0)
-        reconstr_loss =             -tf.reduce_sum(self.x * tf.log(1e-10 + self.x_reconstr_mean)
-                           + (1-self.x) * tf.log(1e-10 + 1 - self.x_reconstr_mean),
-                           1)
+        reconstr_loss = -tf.reduce_sum(self.x * tf.log(1e-10 + self.x_reconstr_mean)+ (1-self.x) * tf.log(1e-10 + 1 - self.x_reconstr_mean),1)
+
         # 2.) The latent loss, which is defined as the Kullback Leibler divergence 
         ##    between the distribution in latent space induced by the encoder on 
         #     the data and some prior. This acts as a kind of regularizer.
         #     This can be interpreted as the number of "nats" required
         #     for transmitting the the latent space distribution given
         #     the prior.
-        latent_loss = -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq 
-                                           - tf.square(self.z_mean) 
-                                           - tf.exp(self.z_log_sigma_sq), 1)
+        latent_loss = -0.5 * tf.reduce_sum(1 + self.z_log_sigma_sq - tf.square(self.z_mean) - tf.exp(self.z_log_sigma_sq), 1)
+
         self.cost = tf.reduce_mean(reconstr_loss + latent_loss)   # average over batch
         # Use ADAM optimizer
-        self.optimizer =             tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
+        self.optimizer = tf.train.AdamOptimizer(learning_rate=self.learning_rate).minimize(self.cost)
         
     def partial_fit(self, X):
         """Train model based on mini-batch of input data.
@@ -207,17 +197,10 @@ def train(network_architecture, learning_rate=0.001,
 
         # Display logs per epoch step
         if epoch % display_step == 0:
-            print "Epoch:", '%04d' % (epoch+1),                   "cost=", "{:.9f}".format(avg_cost)
+            print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(avg_cost))
     return vae
 
-
-# ## Illustrating reconstruction quality
-
-# We can now train a VAE on MNIST by just specifying the network topology. We start with training a VAE with a 20-dimensional latent space.
-
-# In[6]:
-
-network_architecture =     dict(n_hidden_recog_1=500, # 1st layer encoder neurons
+network_architecture = dict(n_hidden_recog_1=500, # 1st layer encoder neurons
          n_hidden_recog_2=500, # 2nd layer encoder neurons
          n_hidden_gener_1=500, # 1st layer decoder neurons
          n_hidden_gener_2=500, # 2nd layer decoder neurons
@@ -225,58 +208,6 @@ network_architecture =     dict(n_hidden_recog_1=500, # 1st layer encoder neuron
          n_z=20)  # dimensionality of latent space
 
 vae = train(network_architecture, training_epochs=75)
-
-
-# Based on this we can sample some test inputs and visualize how well the VAE can reconstruct those. In general the VAE does really well.
-
-# In[7]:
-
-x_sample = mnist.test.next_batch(100)[0]
-x_reconstruct = vae.reconstruct(x_sample)
-
-plt.figure(figsize=(8, 12))
-for i in range(5):
-
-    plt.subplot(5, 2, 2*i + 1)
-    plt.imshow(x_sample[i].reshape(28, 28), vmin=0, vmax=1)
-    plt.title("Test input")
-    plt.colorbar()
-    plt.subplot(5, 2, 2*i + 2)
-    plt.imshow(x_reconstruct[i].reshape(28, 28), vmin=0, vmax=1)
-    plt.title("Reconstruction")
-    plt.colorbar()
-plt.tight_layout()
-
-
-# ## Illustrating latent space
-
-# Next, we train a VAE with 2d latent space and illustrates how the encoder (the recognition network) encodes some of the labeled inputs (collapsing the Gaussian distribution in latent space to its mean). This gives us some insights into the structure of the learned manifold (latent space)
-
-# In[8]:
-
-network_architecture =     
-    dict(n_hidden_recog_1=500, # 1st layer encoder neurons
-         n_hidden_recog_2=500, # 2nd layer encoder neurons
-         n_hidden_gener_1=500, # 1st layer decoder neurons
-         n_hidden_gener_2=500, # 2nd layer decoder neurons
-         n_input=784, # MNIST data input (img shape: 28*28)
-         n_z=2)  # dimensionality of latent space
-
-vae_2d = train(network_architecture, training_epochs=75)
-
-
-# In[9]:
-
-x_sample, y_sample = mnist.test.next_batch(5000)
-z_mu = vae_2d.transform(x_sample)
-plt.figure(figsize=(8, 6)) 
-plt.scatter(z_mu[:, 0], z_mu[:, 1], c=np.argmax(y_sample, 1))
-plt.colorbar()
-
-
-# An other way of getting insights into the latent space is to use the generator network to plot reconstrunctions at the positions in the latent space for which they have been generated:
-
-# In[12]:
 
 nx = ny = 20
 x_values = np.linspace(-3, 3, nx)
@@ -292,4 +223,4 @@ for i, yi in enumerate(x_values):
 plt.figure(figsize=(8, 10))        
 Xi, Yi = np.meshgrid(x_values, y_values)
 plt.imshow(canvas, origin="upper")
-plt.tight_layout()
+plt.savefig("result.png")
