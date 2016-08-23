@@ -179,9 +179,10 @@ class VariationalAutoencoder(object):
         return self.sess.run(self.x_reconstr_mean, 
                              feed_dict={self.x: X})
 
+import matplotlib.cm as cm
 
 def train(network_architecture, learning_rate=0.001,
-          batch_size=100, training_epochs=10, display_step=5):
+          batch_size=100, training_epochs=70, display_step=1):
     vae = VariationalAutoencoder(network_architecture, 
                                  learning_rate=learning_rate, 
                                  batch_size=batch_size)
@@ -204,7 +205,7 @@ def train(network_architecture, learning_rate=0.001,
             dir_name = "epoch" + str(epoch)
             if not os.path.exists(dir_name):
                 os.makedirs(dir_name)
-            result = (vae(z_mu))[0:5]
+            result = (vae.generate(z_mu))[0:5]
             for i in range(5):
                 plt.imsave(
                         dir_name + "/img" + str(i) + ".png",
@@ -222,4 +223,4 @@ network_architecture = dict(n_hidden_recog_1=500, # 1st layer encoder neurons
          n_input=784, # MNIST data input (img shape: 28*28)
          n_z=20)  # dimensionality of latent space
 
-vae = train(network_architecture, training_epochs=75)
+vae = train(network_architecture)
