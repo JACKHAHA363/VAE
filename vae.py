@@ -5,6 +5,8 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
+import os
+
 np.random.seed(0)
 tf.set_random_seed(0)
 
@@ -166,7 +168,7 @@ class VariationalAutoencoder(object):
         space.        
         """
         if z_mu is None:
-            z_mu = np.random.normal(size=self.network_architecture["n_z"])
+            z_mu = np.random.normal(size=[self.batch_size, self.network_architecture["n_z"]])
         # Note: This maps to mean of distribution, we could alternatively
         # sample from Gaussian distribution
         return self.sess.run(self.x_reconstr_mean, 
@@ -177,11 +179,13 @@ class VariationalAutoencoder(object):
         return self.sess.run(self.x_reconstr_mean, 
                              feed_dict={self.x: X})
 
+
 def train(network_architecture, learning_rate=0.001,
           batch_size=100, training_epochs=10, display_step=5):
     vae = VariationalAutoencoder(network_architecture, 
                                  learning_rate=learning_rate, 
                                  batch_size=batch_size)
+    z_mu = np.random.normal(size=[batch_size, network_architecture["n_z"]])
     # Training cycle
     for epoch in range(training_epochs):
         avg_cost = 0.
@@ -197,6 +201,17 @@ def train(network_architecture, learning_rate=0.001,
 
         # Display logs per epoch step
         if epoch % display_step == 0:
+            dir_name = "epoch" + str(epoch)
+            if not os.path.exists(dir_name):
+                os.makedirs(dir_name)
+            result = (vae(z_mu))[0:5]
+            for i in range(5):
+                plt.imsave(
+                        dir_name + "/img" + str(i) + ".png",
+                        result[i].reshape(28,28),
+                        cmap=cm.gray
+                        )
+               
             print("Epoch:", '%04d' % (epoch+1), "cost=", "{:.9f}".format(avg_cost))
     return vae
 
@@ -208,19 +223,3 @@ network_architecture = dict(n_hidden_recog_1=500, # 1st layer encoder neurons
          n_z=20)  # dimensionality of latent space
 
 vae = train(network_architecture, training_epochs=75)
-
-nx = ny = 20
-x_values = np.linspace(-3, 3, nx)
-y_values = np.linspace(-3, 3, ny)
-
-canvas = np.empty((28*ny, 28*nx))
-for i, yi in enumerate(x_values):
-    for j, xi in enumerate(y_values):
-        z_mu = np.array([[xi, yi]])
-        x_mean = vae_2d.generate(z_mu)
-        canvas[(nx-i-1)*28:(nx-i)*28, j*28:(j+1)*28] = x_mean[0].reshape(28, 28)
-
-plt.figure(figsize=(8, 10))        
-Xi, Yi = np.meshgrid(x_values, y_values)
-plt.imshow(canvas, origin="upper")
-plt.savefig("result.png")
