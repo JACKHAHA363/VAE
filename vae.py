@@ -114,8 +114,8 @@ class VariationalAutoencoder(object):
                     tf.random_uniform(tf.shape(self.pos_example)), 
                     self.x_reconstr_mean_pos
                     ),
-                tf.ones_like(self.pos_example),
-                tf.zeros_like(self.pos_example)
+                tf.zeros_like(self.pos_example),
+                tf.ones_like(self.pos_example)
                 )
         return self.sess.run(samples, {self.pos_example:X})
     

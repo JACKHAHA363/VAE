@@ -29,14 +29,14 @@ training_epochs=1
 display_step=5
 
 def NoiseContrastiveLoss(data_model, noise_model):
-    pos_term = tf.neg(tf.log(
-        1.0 + tf.exp(noise_model.ll_pos - data_model.ll_pos)
-        ))
+    pos_term = tf.log(
+            1.0 + tf.exp(noise_model.ll_pos - data_model.ll_pos)
+        )
 
-    neg_term = tf.neg(tf.log(
-        1.0 + tf.exp(data_model.ll_neg - noise_model.ll_neg)
-        ))
-    return tf.neg(tf.reduce_mean(pos_term) + tf.reduce_mean(neg_term))
+    neg_term = tf.log(
+            1.0 + tf.exp(data_model.ll_neg - noise_model.ll_neg)
+        )
+    return tf.reduce_mean(pos_term + neg_term), tf.reduce_mean(noise_model.ll_pos - data_model.ll_pos), tf.reduce_mean(data_model.ll_neg - noise_model.ll_neg)
 
 
 S = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
@@ -64,8 +64,8 @@ with tf.device("/gpu:0"):
             neg_example=neg_example
             )
         
-    loss = NoiseContrastiveLoss(vae_data, vae_noise)
-    optimizer = tf.train.AdamOptimizer(learning_rate).minimize(loss)
+    loss, pos_diff, neg_diff = NoiseContrastiveLoss(vae_data, vae_noise)
+    opt = tf.train.AdamOptimizer(learning_rate).minimize(loss)
     
     init = tf.initialize_all_variables()
     S.run(init)
@@ -74,17 +74,17 @@ with tf.device("/gpu:0"):
         avg_loss = 0
         total_batch = int(n_samples / batch_size)
 
-        for i in range(1):
+        for i in range(3):
             batch_data, _ = mnist.train.next_batch(batch_size)
             batch_noise = vae_noise.reconstruct(batch_data)
             
-            import collections
-            print(collections.Counter(batch_noise[0]))
-
-#            _, loss_eval = S.run(
-#                    [optimizer, loss], 
-#                    {pos_example : batch_data, neg_example : batch_noise}
-#                    )
+            loss_eval, pos_eval, neg_eval = S.run(
+                    [loss, pos_diff, neg_diff], 
+                    {pos_example : batch_data, neg_example : batch_noise}
+                    )
+            print("loss: " + str(loss_eval))
+            print("pos_diff: " + str(pos_eval))
+            print("neg_diff: " + str(neg_eval))
 #            
 #            avg_loss += loss_eval / n_samples * batch_size
 #            
