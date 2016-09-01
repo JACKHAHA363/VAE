@@ -24,26 +24,27 @@ network_architecture = dict(
         )
 
 learning_rate=0.001
-batch_size=100
-training_epochs=1
-display_step=5
+batch_size=400
+training_epochs=45
+converge_step=5
 
 def NoiseContrastiveLoss(data_model, noise_model):
     pos_term = tf.log(
             1.0 + tf.exp(noise_model.ll_pos - data_model.ll_pos)
         )
-
+#    pos_term = tf.exp(noise_model.ll_pos - data_model.ll_pos)
     neg_term = tf.log(
             1.0 + tf.exp(data_model.ll_neg - noise_model.ll_neg)
         )
-    return tf.reduce_mean(pos_term + neg_term), tf.reduce_mean(noise_model.ll_pos - data_model.ll_pos), tf.reduce_mean(data_model.ll_neg - noise_model.ll_neg)
+#    neg_term = tf.exp(data_model.ll_neg - noise_model.ll_neg)
+    return tf.reduce_sum(pos_term + neg_term) / batch_size
 
 
-S = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
-
-with tf.device("/gpu:0"):
+with tf.device("/gpu:1"):
     neg_example = tf.placeholder(tf.float32, [batch_size, network_architecture["n_input"]])
     pos_example = tf.placeholder(tf.float32, [batch_size, network_architecture["n_input"]])
+    S = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
+    
     vae_data = VariationalAutoencoder(
             network_architecture=network_architecture, 
             transfer_fct=tf.nn.softplus,
@@ -51,7 +52,8 @@ with tf.device("/gpu:0"):
             session=S, 
             trainable=True,
             pos_example=pos_example, 
-            neg_example=neg_example
+            neg_example=neg_example,
+            weight_init=None
             )
     
     vae_noise = VariationalAutoencoder(
@@ -61,37 +63,80 @@ with tf.device("/gpu:0"):
             session=S, 
             trainable=False,
             pos_example=pos_example, 
-            neg_example=neg_example
+            neg_example=neg_example,
+            weight_init=None
             )
-        
-    loss, pos_diff, neg_diff = NoiseContrastiveLoss(vae_data, vae_noise)
-    opt = tf.train.AdamOptimizer(learning_rate).minimize(loss)
     
+    training_loss = []
+    LL = []
+
+    loss = NoiseContrastiveLoss(vae_data, vae_noise)
+    opt = tf.train.AdamOptimizer(learning_rate).minimize(loss)
+               
     init = tf.initialize_all_variables()
     S.run(init)
- 
+    
     for epoch in range(training_epochs):
-        avg_loss = 0
+        
         total_batch = int(n_samples / batch_size)
 
-        for i in range(3):
+        for i in range(total_batch):
             batch_data, _ = mnist.train.next_batch(batch_size)
             batch_noise = vae_noise.reconstruct(batch_data)
             
-            loss_eval, pos_eval, neg_eval = S.run(
-                    [loss, pos_diff, neg_diff], 
+            ll_eval, loss_eval, _ = S.run(
+                    [vae_data.eval_result, loss, opt], 
                     {pos_example : batch_data, neg_example : batch_noise}
                     )
-            print("loss: " + str(loss_eval))
-            print("pos_diff: " + str(pos_eval))
-            print("neg_diff: " + str(neg_eval))
-#            
-#            avg_loss += loss_eval / n_samples * batch_size
-#            
-#            print(loss_eval)
+            
+            training_loss.append(loss_eval)
+            LL.append(ll_eval)
 
-#         if epoch % display_step == 0:
-#            print("Epoch:", '%04d' % (epoch+1), "nc loss =", "{:.9f}".format(avg_loss))
+        print("epoch " + str(epoch+1))
+        
+        if (epoch+1) % converge_step == 0:
+            learned_weights = vae_data.get_weight_init()
+            S.close()
 
+            # create new data and noise model
+            S = tf.Session(config=tf.ConfigProto(allow_soft_placement=True))
+            vae_data = VariationalAutoencoder(
+                network_architecture=network_architecture, 
+                transfer_fct=tf.nn.softplus,
+                batch_size=batch_size,
+                session=S, 
+                trainable=True,
+                pos_example=pos_example, 
+                neg_example=neg_example,
+                weight_init=learned_weights,
+                )
+    
+            vae_noise = VariationalAutoencoder(
+                network_architecture=network_architecture, 
+                transfer_fct=tf.nn.softplus,
+                batch_size=batch_size,
+                session=S, 
+                trainable=False,
+                pos_example=pos_example, 
+                neg_example=neg_example,
+                weight_init=learned_weights
+                )
+ 
+            loss = NoiseContrastiveLoss(vae_data, vae_noise)
+            opt = tf.train.AdamOptimizer(learning_rate).minimize(loss)       
+            init = tf.initialize_all_variables()
+            S.run(init)
 
+plt.figure()
+plt.plot(training_loss)
+plt.savefig("loss.png")
 
+plt.figure()
+plt.plot(LL)
+plt.savefig("evaluation.png")
+
+batch_data, _ = mnist.train.next_batch(batch_size)
+batch_recons = vae_data.reconstruct(batch_data)
+
+plt.imsave("origin.png", batch_data[0].reshape(28,28))
+plt.imsave("reconst.png", batch_recons[0].reshape(28,28))
