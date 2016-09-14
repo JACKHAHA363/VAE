@@ -99,24 +99,41 @@ class VariationalAutoencoder(object):
         return x_reconstr_mean
             
     def _create_log_likelihood(self):
-        self.ll_pos = tf.reduce_sum(
+        reconst_pos = tf.reduce_sum(
                     self.pos_example * tf.log(1e-10 + self.x_reconstr_mean_pos) + (1-self.pos_example) * tf.log(1e-10 + 1 - self.x_reconstr_mean_pos),
                     1
                     )
-            
+        latent_pos = 0.5 * tf.reduce_sum(
+                    1 + self.z_log_sigma_sq_pos - tf.square(self.z_mean_pos) - tf.exp(self.z_log_sigma_sq_pos),
+                    1
+                )
+        
+        self.lb_pos = reconst_pos + latent_pos
 
-        self.ll_neg = tf.reduce_sum(
+        reconst_neg = tf.reduce_sum(
                     self.neg_example * tf.log(1e-10 + self.x_reconstr_mean_neg) + (1-self.neg_example) * tf.log(1e-10 + 1 - self.x_reconstr_mean_neg),
                     1
                     )
-
-        self.eval_result = tf.reduce_sum(self.ll_pos) / self.batch_size
+        latent_neg = 0.5 * tf.reduce_sum(
+                    1 + self.z_log_sigma_sq_neg - tf.square(self.z_mean_neg) - tf.exp(self.z_log_sigma_sq_neg),
+                    1
+                )
+ 
+        self.lb_neg = reconst_neg + latent_neg
+        
+        self.eval_result = tf.reduce_sum(self.lb_pos) / self.batch_size
             
       
     def reconstruct(self, X):
         
         return self.sess.run(self.x_reconstr_mean_pos, {self.pos_example:X})
-    
+    def sample(self):
+        
+        z_mu = np.random.normal(size=(self.batch_size, self.network_architecture["n_z"]))
+
+        return self.sess.run(self.x_reconstr_mean_pos, {self.z_pos : z_mu})
+
+
     def _initialize_weights(self, n_hidden_recog_1, n_hidden_recog_2, 
                             n_hidden_gener_1,  n_hidden_gener_2, 
                             n_input, n_z):
