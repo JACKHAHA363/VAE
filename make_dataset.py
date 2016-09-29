@@ -1,4 +1,3 @@
-from vae import VariationalAutoencoder
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
