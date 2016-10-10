@@ -14,8 +14,8 @@ class VariationalAutoencoder(object):
 
         # encoder
         sf.x = Input(shape=(input_dim,))
-        sf.enc_h_1 = Dense(500, activation='relu', input_dim=input_dim)(sf.x)
-        sf.enc_h_2 = Dense(200, activation='relu')(sf.enc_h_1)
+        sf.enc_h_1 = Dense(500, activation='tanh', input_dim=input_dim)(sf.x)
+        sf.enc_h_2 = Dense(200, activation='tanh')(sf.enc_h_1)
         sf.z_mean = Dense(z_dim)(sf.enc_h_2)
         sf.z_log_var = Dense(z_dim)(sf.enc_h_2)
         sf.y_probs = Dense(y_dim, activation='softmax')(sf.enc_h_2)
@@ -31,10 +31,10 @@ class VariationalAutoencoder(object):
         sf.z = Lambda(function=sampling)([sf.z_mean, sf.z_log_var])
         
         # decoder creating layers to be reused
-        z_fc = Dense(200, activation='relu', input_dim=z_dim) 
-        y_fc = Dense(200, activation='relu', input_dim=y_dim)
+        z_fc = Dense(200, activation='tanh', input_dim=z_dim) 
+        y_fc = Dense(200, activation='tanh', input_dim=y_dim)
         merge_layer = Merge([Sequential([z_fc]), Sequential([y_fc])], mode="concat", concat_axis=1)
-        h_fc = Dense(1000, activation='relu')
+        h_fc = Dense(1000, activation='tanh')
         dec_fc = Dense(input_dim, activation='sigmoid')
         sf.dec = Sequential([merge_layer, h_fc, dec_fc])
         
@@ -52,7 +52,7 @@ class VariationalAutoencoder(object):
         xent_loss = sf.input_dim * objectives.binary_crossentropy(x, x_dec)
         z_loss = - 0.5 * K.sum(1 + sf.z_log_var - K.square(sf.z_mean) - K.exp(sf.z_log_var), axis=-1)
         # omit the constant term
-        y_loss =  - K.sum(sf.y_probs * K.log(sf.y_probs), axis=-1)  
+        y_loss =  - 10*K.sum(sf.y_probs * K.log(sf.y_probs), axis=-1)  
         return xent_loss + z_loss + y_loss
 
 

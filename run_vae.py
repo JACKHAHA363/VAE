@@ -5,6 +5,7 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 # load translated data
 import pickle
+import keras as K
 with open("MNIST_data/translated.dat", "rb") as f:
     data = pickle.load(f)
 train_data = data[0 : int(0.8 * len(data))]
@@ -14,6 +15,7 @@ input_dim = 84*84
 y_dim = 100
 z_dim = 100
 model = VariationalAutoencoder(input_dim, y_dim, z_dim)
+early_stop = K.callbacks.EarlyStopping(monitor='val_loss', patience=10, mode="min")
 model.vae.compile(optimizer='rmsprop', loss=model.vae_loss)
 
 hist = model.vae.fit(train_data, train_data,
@@ -21,6 +23,7 @@ hist = model.vae.fit(train_data, train_data,
         nb_epoch=500,
         batch_size=500,
         validation_data=(valid_data, valid_data),
+        callbacks=[early_stop],
         )
 loss = hist.history['loss']
 val_loss = hist.history['val_loss']
