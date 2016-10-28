@@ -57,3 +57,7 @@ plt.imsave("MNIST_data/translated_sample.png", layout)
 import pickle
 with open("MNIST_data/translated.dat", "wb") as f:
     pickle.dump(translated_data, f)
+
+with open("MNIST_data/translated_small.dat", "wb") as f:
+    pickle.dump(translated_data[0:int(len(translated_data)/10)], f)
+
