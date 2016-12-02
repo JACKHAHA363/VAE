@@ -5,6 +5,8 @@ from keras import backend as K
 from keras import objectives
 from keras.datasets import mnist
 
+import tensorflow as tf
+
 class VariationalAutoencoder(object):
     def __init__(sf, input_dim, y_dim, z_dim):
         # copy and paste
@@ -47,12 +49,11 @@ class VariationalAutoencoder(object):
         # total model
         sf.vae = Model(input=sf.x, output=sf.x_dec)
 
-    def vae_loss(sf, x, x_dec):
         ''' Use a uniform for y_prior ''' 
-        xent_loss = sf.input_dim * objectives.binary_crossentropy(x, x_dec)
-        z_loss = - 0.5 * K.sum(1 + sf.z_log_var - K.square(sf.z_mean) - K.exp(sf.z_log_var), axis=-1)
+        sf.xent_loss = tf.reduce_mean(sf.input_dim * objectives.binary_crossentropy(sf.x, sf.x_dec))
+        sf.z_loss = - tf.reduce_mean(0.5 * K.sum(1 + sf.z_log_var - K.square(sf.z_mean) - K.exp(sf.z_log_var), axis=-1))
         # omit the constant term
-        y_loss =  - 10*K.sum(sf.y_probs * K.log(sf.y_probs), axis=-1)  
-        return xent_loss + z_loss + y_loss
+        sf.y_loss = tf.reduce_mean(10*K.sum(sf.y_probs * K.log(sf.y_probs * sf.y_dim), axis=-1))
+        sf.loss = sf.xent_loss + sf.z_loss + sf.y_loss
 
 
