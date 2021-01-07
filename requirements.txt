@@ -20,7 +20,7 @@ ipython-genutils==0.1.0
 Keras==1.1.0
 language-selector==0.1
 louis==2.5.3
-lxml==3.3.3
+lxml==4.6.2
 Mako==0.9.1
 MarkupSafe==0.18
 matplotlib==1.5.3
